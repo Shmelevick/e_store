@@ -1,8 +1,8 @@
 """Initial migration
 
-Revision ID: 9078e299e0a6
+Revision ID: 15b62c3c3c5a
 Revises: 
-Create Date: 2025-06-28 23:19:54.453202
+Create Date: 2025-07-01 17:43:16.461909
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9078e299e0a6'
+revision: str = '15b62c3c3c5a'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -34,15 +34,15 @@ def upgrade() -> None:
     op.create_index(op.f('ix_categories_slug'), 'categories', ['slug'], unique=True)
     op.create_table('products',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(), nullable=True),
-    sa.Column('slug', sa.String(), nullable=True),
-    sa.Column('description', sa.String(), nullable=True),
-    sa.Column('price', sa.Integer(), nullable=True),
-    sa.Column('image_url', sa.String(), nullable=True),
-    sa.Column('stock', sa.Integer(), nullable=True),
-    sa.Column('category_id', sa.Integer(), nullable=True),
-    sa.Column('rating', sa.Float(), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('slug', sa.String(), nullable=False),
+    sa.Column('description', sa.String(), nullable=False),
+    sa.Column('price', sa.Integer(), nullable=False),
+    sa.Column('image_url', sa.String(), nullable=False),
+    sa.Column('stock', sa.Integer(), nullable=False),
+    sa.Column('category_id', sa.Integer(), nullable=False),
+    sa.Column('rating', sa.Float(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
