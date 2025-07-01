@@ -21,15 +21,13 @@ async def all_products(
 ):
     products = db.scalars(
         select(Product)
-        .where(Product.is_active == True)
-        .where(Product.stock > 0)).all()
-    if not products:
+        .where(ACTIVE_STOCK)).all()
+    if products is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='There are no any products')
     return products
     
-
 
 @router.post('/create')
 async def create_product(
@@ -75,7 +73,6 @@ async def product_by_category(
     ).all()
 
     category_ids = [category.id] + [sub.id for sub in subcategories]
-    logger.info(f'{category_ids}')
 
     products = db.scalars(
         select(Product).where(
