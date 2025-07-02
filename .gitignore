@@ -12,3 +12,4 @@ wheels/
 # DBs
 *.db
 *.sqlite
+.vscode/settings.json

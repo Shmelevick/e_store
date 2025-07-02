@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 engine = create_async_engine(
-    'postgresql+asyncpg://ecommerce:ecommerce@localhost:5432/ecommece_db',
+    'postgresql+asyncpg://ecommerce:ecommerce@localhost:5432/ecommerce_db',
     echo=True
 )
 async_session_maker = async_sessionmaker(
