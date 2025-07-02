@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from slugify import slugify
 from sqlalchemy import insert, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.backend.db_depends import get_db
@@ -33,24 +34,31 @@ async def create_product(
     db: Annotated[AsyncSession, Depends(get_db)],
     create_product: CreateProduct
 ):
-    await db.execute(
-        insert(Product)
-        .values(
-            name=create_product.name,
-            slug=slugify(create_product.name),
-            description=create_product.description,
-            price=create_product.price,
-            image_url=create_product.image_url,
-            stock=create_product.stock,
-            category_id=create_product.category,
-            rating=0.0
+    try:    
+        await db.execute(
+            insert(Product)
+            .values(
+                name=create_product.name,
+                slug=slugify(create_product.name),
+                description=create_product.description,
+                price=create_product.price,
+                image_url=create_product.image_url,
+                stock=create_product.stock,
+                category_id=create_product.category,
+                rating=0.0
+            )
         )
-    )
-    await db.commit()
-    return {
-        'status_code': status.HTTP_201_CREATED,
-        'transaction': 'Successful'
-        }
+        await db.commit()
+        return {
+            'status_code': status.HTTP_201_CREATED,
+            'transaction': 'Successful'
+            }
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Product with this slug already exists."
+        )
 
 
 @router.get('/{category_slug}')

@@ -1,13 +1,15 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class CreateProduct(BaseModel):
     name: str
     description: str
-    price: int
+    price: float
     image_url: str
     stock: int
     category: int
+    supplier_id: Optional[int] = None
 
 
 class CreateCategory(BaseModel):
