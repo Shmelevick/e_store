@@ -8,7 +8,7 @@ class CreateProduct(BaseModel):
     price: float
     image_url: str
     stock: int
-    category: int
+    category_id: int
     supplier_id: Optional[int] = None
 
 
@@ -16,3 +16,10 @@ class CreateCategory(BaseModel):
     name: str
     parent_id: int | None
 
+class CreateUser(BaseModel):
+    first_name: str
+    last_name: str
+    username: str
+    email: str
+    password: str
+    

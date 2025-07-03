@@ -34,31 +34,25 @@ async def create_product(
     db: Annotated[AsyncSession, Depends(get_db)],
     create_product: CreateProduct
 ):
-    try:    
-        await db.execute(
-            insert(Product)
-            .values(
-                name=create_product.name,
-                slug=slugify(create_product.name),
-                description=create_product.description,
-                price=create_product.price,
-                image_url=create_product.image_url,
-                stock=create_product.stock,
-                category_id=create_product.category,
-                rating=0.0
-            )
+    await db.execute(
+        insert(Product).values(
+            name=create_product.name,
+            slug=slugify(create_product.name),
+            description=create_product.description,
+            price=create_product.price,
+            image_url=create_product.image_url,
+            stock=create_product.stock,
+            category_id=create_product.category_id,
+            supplier_id=create_product.supplier_id,
+            rating=0.0
         )
-        await db.commit()
-        return {
-            'status_code': status.HTTP_201_CREATED,
-            'transaction': 'Successful'
-            }
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Product with this slug already exists."
-        )
+    )
+    await db.commit()
+    return {
+        'status_code': status.HTTP_201_CREATED,
+        'transaction': 'Successful'
+    }
+
 
 
 @router.get('/{category_slug}')
