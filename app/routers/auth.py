@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select, insert
 from passlib.context import CryptContext
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from app.models.user import User
 from app.schemas import CreateUser
@@ -12,30 +12,50 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
-security = HTTPBasic()
 
-
-async def get_current_username(
-        db: Annotated[AsyncSession, Depends(get_db)],
-        credentials: HTTPBasicCredentials = Depends(security)
-):
-    user = await db.scalar(
-        select(User)
-        .where(User.username == credentials.username)
-    )
-    if not user or not bcrypt_context.verify(
-        credentials.password,
-        user.hashed_password
+async def authanticate_user(
+        db: AsyncSession,
+        username: str,
+        password: str
     ):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    user = await db.scalar(select(User).where(User.username == username))
+    if (
+        not user 
+        or not bcrypt_context.verify(password, user.hashed_password)
+        or user.is_active == False
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentical credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
-@router.get('/users/me')
-async def read_current_user(user: str = Depends(get_current_username)):
-    return {"User": user}
+@router.get('/read_current_user')
+async def read_current_user(user: User = Depends(oauth2_scheme)):
+    return user
 
+
+@router.post('/token')
+async def login(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+):
+    user = await authanticate_user(db, form_data.username, form_data.password)
+
+    if not user or user.is_active == False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Could not validate user'
+        )
+
+    return {
+        'access_token': user.username,
+        'token_type': 'bearer'
+    }
 
 @router.post('/')
 async def create_user(
