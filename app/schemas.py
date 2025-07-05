@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, field_validator
+# from typing import Optional
 
 
 class CreateProduct(BaseModel):
@@ -9,12 +9,22 @@ class CreateProduct(BaseModel):
     image_url: str
     stock: int
     category_id: int
-    supplier_id: Optional[int] = None
+    supplier_id: int | None = None
+
+    @field_validator('name')
+    def normalize_name(cls, value):
+        return value.title()
+    
+    @field_validator('stock')
+    def validate_stock(cls, value):
+        if not 1000 >= value > -1:
+            raise ValueError('Must be between 0 and 1000')
+        return value
 
 
 class CreateCategory(BaseModel):
     name: str
-    parent_id: int | None
+    parent_id: int | None = None
 
 class CreateUser(BaseModel):
     first_name: str

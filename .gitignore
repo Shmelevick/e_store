@@ -13,3 +13,5 @@ wheels/
 *.db
 *.sqlite
 .vscode/settings.json
+
+.env

@@ -2,6 +2,10 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select, insert
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from datetime import datetime, timedelta
+from jose import jwt, JWTError
+from os import getenv
+from dotenv import load_dotenv
 
 from app.models.user import User
 from app.schemas import CreateUser
@@ -10,12 +14,68 @@ from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+load_dotenv()
+
+SECRET_KEY = getenv('SECRET_KEY')
+ALGORITHM = getenv('ALGORITHM')
+
 router = APIRouter(prefix='/auth', tags=['auth'])
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 
-async def authanticate_user(
+def not_none(arg):
+    if arg is None:
+        raise Exception(f'{arg} is None!')
+    return arg
+    
+    
+async def get_user_data_from_jwt(token: Annotated[str, Depends(oauth2_scheme)]):
+    try:
+        payload = jwt.decode(
+            token,
+            not_none(SECRET_KEY),
+            algorithms=[not_none(ALGORITHM)]
+        )
+        username: str = payload["sub"]
+        user_id: int = payload["id"]
+        is_admin: str = payload['is_admin']
+        is_supplier: str = payload['is_supplier']
+        is_customer: str = payload['is_customer']
+        expire = payload.get('ext')
+
+        if username is None or user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Could not validate user'
+            )
+        if expire is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='No access token supplied (no "expire")'
+            )
+        if datetime.now() > datetime.fromtimestamp(expire):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail='Token is expired'
+            )
+        
+        return {
+            'username': username,
+            'id': user_id,
+            'is_admin': is_admin, 
+            'is_supplier': is_supplier,
+            'is_customer': is_customer
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Could not validate'
+        )
+
+
+
+async def authenticate_user(
         db: AsyncSession,
         username: str,
         password: str
@@ -34,9 +94,33 @@ async def authanticate_user(
     return user
 
 
+async def create_access_token(
+        username: str,
+        user_id: int,
+        is_admin: bool,
+        is_supplier: bool,
+        is_customer: bool,
+        expires_delta: timedelta
+):
+    expire = datetime.now() + expires_delta
+
+    encode = {
+        'sub': username,
+        'id': user_id,
+        'is_admin': is_admin,
+        'is_supplier': is_supplier,
+        'is_customer': is_customer,
+        'ext': expire.timestamp()
+    }
+    return jwt.encode(
+        encode, not_none(SECRET_KEY),
+        algorithm=not_none(ALGORITHM)
+    )
+
+
 @router.get('/read_current_user')
-async def read_current_user(user: User = Depends(oauth2_scheme)):
-    return user
+async def read_current_user(user: User = Depends(get_user_data_from_jwt)):
+    return {"User": user}
 
 
 @router.post('/token')
@@ -44,18 +128,51 @@ async def login(
     db: Annotated[AsyncSession, Depends(get_db)],
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
-    user = await authanticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user(db, form_data.username, form_data.password)
 
     if not user or user.is_active == False:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Could not validate user'
         )
+    
+    token = await create_access_token(
+        user.username,
+        user.id,
+        user.is_admin,
+        user.is_supplier,
+        user.is_customer,
+        expires_delta=timedelta(minutes=20)
+    )
 
     return {
-        'access_token': user.username,
+        'access_token': token,
         'token_type': 'bearer'
     }
+
+
+# @router.get('/read_current_user')
+# async def read_current_user(user: User = Depends(oauth2_scheme)):
+#     return user
+
+
+# @router.post('/token')
+# async def login(
+#     db: Annotated[AsyncSession, Depends(get_db)],
+#     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+# ):
+#     user = await authanticate_user(db, form_data.username, form_data.password)
+
+#     if not user or user.is_active == False:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail='Could not validate user'
+#         )
+
+#     return {
+#         'access_token': user.username,
+#         'token_type': 'bearer'
+#     }
 
 @router.post('/')
 async def create_user(
