@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select, insert
+from sqlalchemy import select, insert, update
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
@@ -150,6 +150,81 @@ async def login(
         'token_type': 'bearer'
     }
 
+@router.post('/')
+async def create_user(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    create_user: CreateUser
+):
+    await db.execute(
+        insert(User)
+        .values(
+            first_name=create_user.first_name,
+            last_name=create_user.last_name,
+            username=create_user.username,
+            email=create_user.email,
+            hashed_password=bcrypt_context.hash(create_user.password)
+        )
+    )
+    await db.commit()
+    return {
+        'status_code': status.HTTP_201_CREATED,
+        'transation': 'Successful'
+    }
+
+
+@router.delete('/delete')
+async def delete_user(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request_data: Annotated[dict, Depends(get_user_data_from_jwt)],
+    user_id: int
+):
+    if request_data.get('is_admin'):
+        
+        user = await db.scalar(select(User).where(User.id == user_id))
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f'User with id {user_id} not found'
+            )
+
+        if user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You can't delete admin user"
+            )
+        
+        if user.is_active:
+            await db.execute(
+                update(User)
+                .where(User.id == user_id)
+                .values(is_active=False)
+            )
+            await db.commit()
+            return {
+                'status_code': status.HTTP_200_OK,
+                'detail': 'User is deleted'
+            }
+        
+        await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(is_active=True)
+        )
+        await db.commit()
+        return {
+            'status_code': status.HTTP_200_OK,
+            'detail': 'User is activated'
+        }
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="You don't have admin permission"
+    )
+            
+
+
+
+
 
 # @router.get('/read_current_user')
 # async def read_current_user(user: User = Depends(oauth2_scheme)):
@@ -173,24 +248,3 @@ async def login(
 #         'access_token': user.username,
 #         'token_type': 'bearer'
 #     }
-
-@router.post('/')
-async def create_user(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    create_user: CreateUser
-):
-    await db.execute(
-        insert(User)
-        .values(
-            first_name=create_user.first_name,
-            last_name=create_user.last_name,
-            username=create_user.username,
-            email=create_user.email,
-            hashed_password=bcrypt_context.hash(create_user.password)
-        )
-    )
-    await db.commit()
-    return {
-        'status_code': status.HTTP_201_CREATED,
-        'transation': 'Successful'
-    }
