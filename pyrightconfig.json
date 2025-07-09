@@ -1,7 +1,6 @@
 {
   "typeCheckingMode": "basic",
-  "reportOptionalMemberAccess": "warning",
-  "reportOptionalSubscript": "none",
-  "reportGeneralTypeIssues": "information",
-  "reportMissingImports": "none"
+  "reportUndefinedVariable": true,
+  "pythonVersion": "3.11",
+  "extraPaths": ["./app", "./src"]
 }

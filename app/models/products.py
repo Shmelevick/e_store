@@ -2,13 +2,17 @@ from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.backend.db import Base
-from app.models import *
+from app.models import Category, Product
 
 
 class Product(Base):
     __tablename__ = 'products'
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+        autoincrement=True
+    )
     name: Mapped[str] = mapped_column(String)
     slug: Mapped[str] = mapped_column(String, unique=True, index=True)
     description: Mapped[str] = mapped_column(String)
