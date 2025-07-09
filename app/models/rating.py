@@ -4,7 +4,6 @@ from sqlalchemy import Boolean, Float, Integer, ForeignKey, String, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.backend.db import Base
-from app.models import User, Product, Review
 
 
 class Rating(Base):
@@ -21,9 +20,5 @@ class Rating(Base):
         ForeignKey('products.id'),
         nullable=False
     )
+    review: Mapped['Review'] = relationship('Review', back_populates='rating')
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-
-
-    
-

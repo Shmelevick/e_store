@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.backend.db import Base
-from app.models import Category, Product
+from app.models import Category
 
 
 class Product(Base):

@@ -4,7 +4,6 @@ from sqlalchemy import Boolean, Float, Integer, ForeignKey, String, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.backend.db import Base
-from app.models import User, Product, Rating
 
 
 class Review(Base):
@@ -21,7 +20,7 @@ class Review(Base):
         nullable=False
     )
     rating_id: Mapped[int] = mapped_column(
-        ForeignKey('rating.id')
+        ForeignKey('ratings.id')
     )
     comment: Mapped[str] = mapped_column(String, nullable=False)
     comment_date: Mapped[date] = mapped_column(
@@ -29,5 +28,5 @@ class Review(Base):
         default=date.today,
         nullable=False
     )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     rating: Mapped['Rating'] = relationship('Rating', back_populates='review')
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)

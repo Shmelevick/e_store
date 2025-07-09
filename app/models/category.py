@@ -1,5 +1,7 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
+
+from typing import List
 
 from app.backend.db import Base
 
@@ -12,6 +14,5 @@ class Category(Base):
     slug = Column(String, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     parent_id = Column(Integer, ForeignKey('categories.id'), nullable=True)
-
-    products = relationship('Product', back_populates='category')
+    products: Mapped[list['Review']] = relationship('Product', back_populates='category')
 

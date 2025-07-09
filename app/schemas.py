@@ -34,5 +34,5 @@ class CreateUser(BaseModel):
     password: str
     
 
-class Review(BaseModel):
-    user_id: 
+# class Review(BaseModel):
+#     user_id: 
