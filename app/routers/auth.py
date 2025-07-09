@@ -1,18 +1,18 @@
-from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select, insert, update
-from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
 from os import getenv
-from dotenv import load_dotenv
-
-from app.models.user import User
-from app.schemas import CreateUser
-from app.backend.db_depends import get_db
 from typing import Annotated
+
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.backend.db_depends import get_db
+from app.models.user import User
+from app.schemas import CreateUser
 
 load_dotenv()
 
@@ -30,7 +30,9 @@ def not_none(arg):
     return arg
     
     
-async def get_user_data_from_jwt(token: Annotated[str, Depends(oauth2_scheme)]):
+async def get_user_data_from_jwt(
+        token: Annotated[str, Depends(oauth2_scheme)]
+    ) -> dict:
     try:
         payload = jwt.decode(
             token,
@@ -72,7 +74,6 @@ async def get_user_data_from_jwt(token: Annotated[str, Depends(oauth2_scheme)]):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Could not validate'
         )
-
 
 
 async def authenticate_user(
@@ -150,6 +151,7 @@ async def login(
         'token_type': 'bearer'
     }
 
+
 @router.post('/')
 async def create_user(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -221,10 +223,6 @@ async def delete_user(
         detail="You don't have admin permission"
     )
             
-
-
-
-
 
 # @router.get('/read_current_user')
 # async def read_current_user(user: User = Depends(oauth2_scheme)):

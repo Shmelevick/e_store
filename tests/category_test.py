@@ -1,7 +1,7 @@
 import pytest
 from fastapi import status
-
 from loguru import logger
+
 
 @pytest.mark.asyncio
 async def test_create_category(async_client):
@@ -54,6 +54,7 @@ async def test_create_category_with_duplicate_slug_should_fail(async_client):
     )
     assert post_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+
 @pytest.mark.asyncio
 async def test_create_product(async_client):
     # Создаем категорию, чтобы привязать продукт
@@ -95,6 +96,7 @@ async def test_create_product(async_client):
     assert products.status_code == status.HTTP_200_OK
     assert any(p["name"] == "Test Product" for p in products.json())
 
+
 @pytest.mark.asyncio
 async def test_create_product_missing_field_should_fail(async_client):
     response = await async_client.post(
@@ -108,6 +110,7 @@ async def test_create_product_missing_field_should_fail(async_client):
         }
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
 
 @pytest.mark.asyncio
 async def test_create_product_duplicate_slug_should_fail(async_client):

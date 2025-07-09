@@ -1,14 +1,16 @@
 from typing import Annotated
 
+from loguru import logger
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from slugify import slugify
 from sqlalchemy import insert, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.backend.db_depends import get_db
 from app.models import Category, Product
 from app.schemas import CreateProduct
+from app.routers.auth import get_user_data_from_jwt
 
 router = APIRouter(prefix='/product', tags=['products'])
 
@@ -32,27 +34,32 @@ async def all_products(
 @router.post('/create')
 async def create_product(
     db: Annotated[AsyncSession, Depends(get_db)],
-    create_product: CreateProduct
+    create_product: CreateProduct,
+    get_user: Annotated[dict, Depends(get_user_data_from_jwt)]
 ):
-    await db.execute(
-        insert(Product).values(
-            name=create_product.name,
-            slug=slugify(create_product.name),
-            description=create_product.description,
-            price=create_product.price,
-            image_url=create_product.image_url,
-            stock=create_product.stock,
-            category_id=create_product.category_id,
-            supplier_id=create_product.supplier_id,
-            rating=0.0
+    if get_user.get('is_supplier') or get_user.get('is_admin'):
+        await db.execute(
+            insert(Product).values(
+                name=create_product.name,
+                slug=slugify(create_product.name),
+                description=create_product.description,
+                price=create_product.price,
+                image_url=create_product.image_url,
+                stock=create_product.stock,
+                category_id=create_product.category_id,
+                supplier_id=create_product.supplier_id,
+                rating=0.0
+            )
         )
-    )
-    await db.commit()
-    return {
-        'status_code': status.HTTP_201_CREATED,
-        'transaction': 'Successful'
-    }
-
+        await db.commit()
+        return {
+            'status_code': status.HTTP_201_CREATED,
+            'transaction': 'Successful'
+        }
+    raise HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail='You are not authorized to use this method'
+)
 
 
 @router.get('/{category_slug}')
@@ -105,59 +112,104 @@ async def product_detail(
 async def update_product(
     db: Annotated[AsyncSession, Depends(get_db)],
     product_slug: str,
-    new_product: CreateProduct
+    new_product: CreateProduct,
+    get_user: Annotated[dict, Depends(get_user_data_from_jwt)]
 ):
-    product = await db.scalar(
-        select(Product).where((Product.slug == product_slug) & ACTIVE_STOCK)
-    )
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="There is no such product"
+    if get_user.get('is_admin') or get_user.get('is_supplier'):
+        product = await db.scalar(
+            select(Product).where((Product.slug == product_slug) & ACTIVE_STOCK)
+        )
+        
+        if product is None:
+            logger.error(f'''Нет продукта {Product.slug}''')
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="There is no such product"
+            )
+        i = f'ID поставшика расходится. Принято {get_user.get("id")},'
+        i += f'в бд {product.supplier_id}'
+        logger.error(i)
+        
+        if get_user.get('id') != product.supplier_id:
+
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You are not authorized to use this method"
+            )
+
+        await db.execute(
+            update(Product)
+            .where((Product.slug == product_slug) & ACTIVE_STOCK)
+            .values(
+                name=new_product.name,
+                description=new_product.description,
+                price=new_product.price,
+                image_url=new_product.image_url,
+                stock=new_product.stock,
+                category_id=new_product.category_id
+            )
         )
 
-    await db.execute(
-        update(Product)
-        .where(Product.slug == product_slug) & ACTIVE_STOCK
-        .values(
-            name=new_product.name,
-            description=new_product.description,
-            price=new_product.price,
-            image_url=new_product.image_url,
-            stock=new_product.stock,
-            category_id=new_product.category
-        )
-    )
+        await db.commit()
 
-    await db.commit()
-
-    return {
-        'status_code': status.HTTP_200_OK,
-        'transaction': 'Product update is successful'
-    }
+        return {
+            'status_code': status.HTTP_200_OK,
+            'transaction': 'Product update is successful'
+        }
+    logger.error(f"""
+Admin: {get_user.get('is_admin')}, 
+is_supplier: {get_user.get('is_supplier')}
+""")
+    raise HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail='You are not authorized to use this method'
+)
 
 
 @router.delete('/delete')
 async def delete_product(
     db: Annotated[AsyncSession, Depends(get_db)],
-    product_id: int
+    product_id: int,
+    get_user: Annotated[dict, Depends(get_user_data_from_jwt)]
 ):
-    product = await db.scalar(
-        select(Product)
-        .where((Product.id == product_id) & ACTIVE_STOCK))
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='There is no such product'
+    if get_user.get('is_admin') or get_user.get('is_supplier'):
+        product = await db.scalar(
+            select(Product)
+            .where((Product.id == product_id) & ACTIVE_STOCK))
+        if product is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail='There is no such product'
+            )
+        
+        if get_user.get('id') != product.supplier_id:
+
+            error = f'ID поставшика расходится. Принято {get_user.get("id")},'
+            error += f'в бд {product.supplier_id}'
+            logger.error(error)
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You are not authorized to use this method"
+            )
+        
+        await db.execute(
+            update(Product)
+            .where(Product.id == product_id)
+            .values(is_active=False)
         )
-    await db.execute(
-        update(Product)
-        .where(Product.id == product_id)
-        .values(is_active=False)
-    )
-    await db.commit()
-    
-    return {
-        'status_code': status.HTTP_200_OK,
-        'transaction': 'Product delete is successful'
-    }
+        await db.commit()
+        
+        return {
+            'status_code': status.HTTP_200_OK,
+            'transaction': 'Product delete is successful'
+        }
+    logger.error(f"""
+Admin: {get_user.get('is_admin')}, 
+is_supplier: {get_user.get('is_supplier')}
+""")
+    raise HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail='You are not authorized to use this method'
+)

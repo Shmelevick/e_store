@@ -1,6 +1,7 @@
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.backend.db import Base
-from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, Float
-from sqlalchemy.orm import relationship, Mapped, mapped_column 
 from app.models import *
 
 

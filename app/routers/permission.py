@@ -1,12 +1,13 @@
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
-from .auth import get_user_data_from_jwt
-from app.models.user import User
-from sqlalchemy.orm import Session
-from app.backend.db_depends import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.backend.db_depends import get_db
+from app.models.user import User
+
+from .auth import get_user_data_from_jwt
 
 router = APIRouter(prefix='/permission', tags=['permission'])
 

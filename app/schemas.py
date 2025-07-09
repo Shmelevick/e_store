@@ -1,4 +1,5 @@
 from pydantic import BaseModel, field_validator
+
 # from typing import Optional
 
 
@@ -9,7 +10,7 @@ class CreateProduct(BaseModel):
     image_url: str
     stock: int
     category_id: int
-    supplier_id: int | None = None
+    supplier_id: int
 
     @field_validator('name')
     def normalize_name(cls, value):
@@ -25,6 +26,7 @@ class CreateProduct(BaseModel):
 class CreateCategory(BaseModel):
     name: str
     parent_id: int | None = None
+
 
 class CreateUser(BaseModel):
     first_name: str

@@ -1,17 +1,12 @@
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models.user import User
-from app.models.products import Product
-from app.models.category import Category
-
 from app.backend.db import Base
-from app.main import app
 from app.backend.db_depends import get_db
+from app.main import app
 
 # Асинхронный URL для SQLite in-memory (или файл, если нужно)
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test_ecommerce.db"
@@ -29,6 +24,7 @@ AsyncTestingSessionLocal = sessionmaker(
     class_=AsyncSession
 )
 
+
 # Создание таблиц асинхронно (выполнить один раз перед тестами)
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def prepare_database():
@@ -40,16 +36,19 @@ async def prepare_database():
     yield
     # Можно по окончании сессии почистить, если нужно
 
+
 # Override зависимости get_db для async сессии
 async def get_db_for_tests():
     async with AsyncTestingSessionLocal() as session:
         yield session
+
 
 @pytest.fixture(autouse=True)
 def override_get_db():
     app.dependency_overrides[get_db] = get_db_for_tests
     yield
     app.dependency_overrides.clear()
+
 
 # Фикстура для асинхронного HTTP клиента FastAPI
 @pytest_asyncio.fixture
@@ -59,6 +58,7 @@ async def async_client():
     base_url="http://test"
 ) as client:
         yield client
+
 
 # Фикстура для отката транзакции после каждого теста (опционально)
 @pytest_asyncio.fixture(autouse=True)
