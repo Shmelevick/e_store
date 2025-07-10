@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from os import getenv
 from typing import Annotated
 
+from loguru import logger
+
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -47,6 +49,7 @@ async def get_user_data_from_jwt(
         expire = payload.get('ext')
 
         if username is None or user_id is None:
+            logger.error(f"Username: {username}, user_id: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail='Could not validate user'
@@ -57,6 +60,7 @@ async def get_user_data_from_jwt(
                 detail='No access token supplied (no "expire")'
             )
         if datetime.now() > datetime.fromtimestamp(expire):
+            logger.error(f'До {datetime.fromtimestamp(expire)}')
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail='Token is expired'
@@ -87,6 +91,9 @@ async def authenticate_user(
         or not bcrypt_context.verify(password, user.hashed_password)
         or user.is_active == False
     ):
+        error = f'User: {user}, verification: '
+        error += f'{bcrypt_context.verify(password, user.hashed_password)}'
+        logger.error(error)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentical credentials",
@@ -132,6 +139,8 @@ async def login(
     user = await authenticate_user(db, form_data.username, form_data.password)
 
     if not user or user.is_active == False:
+        logger.error(f'User: {user}')
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Could not validate user'
