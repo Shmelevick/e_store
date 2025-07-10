@@ -60,7 +60,7 @@ async def get_user_data_from_jwt(
                 detail='No access token supplied (no "expire")'
             )
         if datetime.now() > datetime.fromtimestamp(expire):
-            logger.error(f'До {datetime.fromtimestamp(expire)}')
+            logger.error(f'Токен все. До {datetime.fromtimestamp(expire)}')
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail='Token is expired'

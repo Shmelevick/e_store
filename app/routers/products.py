@@ -225,10 +225,10 @@ async def product_reviews(
     product_slug: str
 ):
     reviews = await db.scalars(
-        select(CreateReview)
-        .join(CreateReview.product)
-        .where((Product.slug == product_slug) & (CreateReview.is_active == True))
-        .options(joinedload(CreateReview.product))
+        select(Review)
+        .join(Review.product)
+        .where((Product.slug == product_slug) & (Review.is_active == True))
+        .options(joinedload(Review.product))
     )
     if not reviews:
         raise HTTPException(
@@ -295,7 +295,7 @@ async def add_reviews(
 
         return {
         'status_code': status.HTTP_201_CREATED,
-        'transaction': 'Review and rating creation is successful'
+        'message': 'Review and rating creation is successful'
     }
     
     except Exception as e:
@@ -308,7 +308,7 @@ async def add_reviews(
 # customer 123456
 
 
-@router.delete('detail/{product_slug}/reviews')
+@router.delete('/detail/{product_slug}/reviews')
 async def delete_reviews(
     db: Annotated[AsyncSession, Depends(get_db)],
     product_slug: str,
@@ -324,3 +324,39 @@ async def delete_reviews(
         detail='You are not authorized to use this method'
     )
 
+    try:
+        product_raw = await db.execute(
+            select(Product).where(Product.slug == product_slug)
+        )
+        product = product_raw.scalar_one_or_none()
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail='Product not found'
+            )
+        
+        await db.execute(
+            update(Review)
+            .where(Review.product_id == product.id)
+            .values(is_active=False)
+        )
+
+        await db.execute(
+            update(Rating)
+            .where(Rating.product_id == product.id)
+            .values(is_active=False)
+        )
+
+        await db.commit()
+
+        return {
+            'status_code': status.HTTP_200_OK,
+            'message': 'Product reviews successfully deleted'
+        }
+    except Exception as e:
+        await db.rollback()
+        logger.error(f'Failed to add review/rating: {e}')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Failed to delete review or rating'
+        )

@@ -4,6 +4,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.backend.db import Base
 from app.models import Category
 
+from typing import List
+
 
 class Product(Base):
     __tablename__ = 'products'
@@ -25,6 +27,10 @@ class Product(Base):
     )
     category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'))
     rating: Mapped[float] = mapped_column(Float)
+    ratings: Mapped[List['Rating']] = relationship(
+        'Rating',
+        back_populates='product'
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     category: Mapped['Category'] = relationship(
         'Category', back_populates='products'

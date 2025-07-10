@@ -21,4 +21,8 @@ class Rating(Base):
         nullable=False
     )
     review: Mapped['Review'] = relationship('Review', back_populates='rating')
+    product: Mapped['Product'] = relationship(
+        'Product',
+        back_populates='ratings'
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
