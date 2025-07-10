@@ -34,5 +34,20 @@ class CreateUser(BaseModel):
     password: str
     
 
-# class Review(BaseModel):
-#     user_id: 
+class CreateReview(BaseModel):
+    comment: str
+
+    @field_validator('comment')
+    def validate_comment_length(cls, value):
+        if not 10 < len(value) < 1000:
+            raise ValueError('Length must be between 10 and 1000')
+        return value
+    
+class CreateRating(BaseModel):
+    grade: int
+
+    @field_validator('grade')
+    def validate_grade(cls, value):
+        if not 1 <= value <= 5:
+            raise ValueError('Grade must be between 1 and 5')
+        return value
