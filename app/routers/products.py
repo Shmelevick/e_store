@@ -5,10 +5,11 @@ from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException, status
 from slugify import slugify
 from sqlalchemy import insert, select, update
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.backend.db_depends import get_db
-from app.models import Category, Product
+from app.models import Category, Product, Review
 from app.schemas import CreateProduct
 from app.routers.auth import get_user_data_from_jwt
 
@@ -106,6 +107,27 @@ async def product_detail(
             detail="There is no any product"
         )
     return product
+
+
+@router.get('/detail/{product_slug}/reviews')
+async def product_reviews(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    product_slug: str
+):
+    reviews = await db.scalars(
+        select(Review)
+        .join(Review.product)
+        .where((Product.slug == product_slug) & (Review.is_active == True))
+        .options(joinedload(Review.product))
+    )
+    if not reviews:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No reviews found"
+        )
+    return reviews.all()
+    
+
 
 
 @router.put('/detail/{product_slug}')
