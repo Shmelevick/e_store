@@ -1,16 +1,17 @@
 from typing import Annotated
+from datetime import date
 
 from loguru import logger
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from slugify import slugify
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, select, update, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.backend.db_depends import get_db
-from app.models import Category, Product, Review
-from app.schemas import CreateProduct
+from app.models import Category, Product, Review, Rating
+from app.schemas import CreateProduct, CreateReview, CreateRating
 from app.routers.auth import get_user_data_from_jwt
 
 router = APIRouter(prefix='/product', tags=['products'])
@@ -109,26 +110,7 @@ async def product_detail(
     return product
 
 
-@router.get('/detail/{product_slug}/reviews')
-async def product_reviews(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    product_slug: str
-):
-    reviews = await db.scalars(
-        select(Review)
-        .join(Review.product)
-        .where((Product.slug == product_slug) & (Review.is_active == True))
-        .options(joinedload(Review.product))
-    )
-    if not reviews:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No reviews found"
-        )
-    return reviews.all()
     
-
-
 
 @router.put('/detail/{product_slug}')
 async def update_product(
@@ -148,12 +130,12 @@ async def update_product(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="There is no such product"
             )
-        i = f'ID поставшика расходится. Принято {get_user.get("id")},'
-        i += f'в бд {product.supplier_id}'
-        logger.error(i)
         
         if get_user.get('id') != product.supplier_id:
 
+            i = f'ID поставшика расходится. Принято {get_user.get("id")},'
+            i += f'в бд {product.supplier_id}'
+            logger.error(i)
 
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -235,3 +217,110 @@ is_supplier: {get_user.get('is_supplier')}
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail='You are not authorized to use this method'
 )
+
+
+@router.get('/detail/{product_slug}/reviews')
+async def product_reviews(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    product_slug: str
+):
+    reviews = await db.scalars(
+        select(CreateReview)
+        .join(CreateReview.product)
+        .where((Product.slug == product_slug) & (CreateReview.is_active == True))
+        .options(joinedload(CreateReview.product))
+    )
+    if not reviews:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No reviews found"
+        )
+    return reviews.all()
+
+
+@router.post('/detail/{product_slug}/reviews')
+async def add_reviews(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    product_slug: str,
+    get_user: Annotated[dict, Depends(get_user_data_from_jwt)],
+    review: CreateReview,
+    rating: CreateRating
+):
+    if not get_user.get('is_customer'):
+        logger.error(f'User: {get_user}')
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Only a customer can make reviews'
+        )
+
+    try:
+        product_raw = await db.execute(
+            select(Product).where(Product.slug == product_slug)
+        )
+        product = product_raw.scalar_one_or_none()
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail='Product not found'
+            )
+
+        new_rating = Rating(
+            grade=rating.grade,
+            user_id=get_user['id'],
+            product_id=product.id
+        )
+        db.add(new_rating)
+        await db.flush()
+
+        new_review = Review(
+            user_id=get_user['id'],
+            product_id=product.id,
+            rating_id=new_rating.id,
+            comment=review.comment,
+            comment_date=date.today()
+        )
+        db.add(new_review)
+        await db.flush()
+
+        new_avg_rating_raw = await db.execute(
+            select(func.avg(Rating.grade))
+            .where(Rating.product_id == product.id, Rating.is_active == True)
+        )
+        new_avg_rating = new_avg_rating_raw.scalar()
+
+        product.rating = float(round(new_avg_rating or 0, 1)) # нужен ли 'or 0'?
+        db.add(product)
+
+        await db.commit()
+
+        return {
+        'status_code': status.HTTP_201_CREATED,
+        'transaction': 'Review and rating creation is successful'
+    }
+    
+    except Exception as e:
+        await db.rollback()
+        logger.error(f'Failed to add review/rating: {e}')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Failed to add review or rating'
+        )
+# customer 123456
+
+
+@router.delete('detail/{product_slug}/reviews')
+async def delete_reviews(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    product_slug: str,
+    get_user: Annotated[dict, Depends(get_user_data_from_jwt)]
+):
+    if not get_user.get('is_admin'):
+        logger.error(f"""
+        Admin: {get_user.get('is_admin')}, 
+        user: {get_user}
+    """)
+        raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail='You are not authorized to use this method'
+    )
+
